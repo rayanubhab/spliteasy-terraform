@@ -1,0 +1,11 @@
+environment            = "staging"
+aws_region             = "us-east-1"
+single_nat_gateway     = true
+app_instance_type      = "t3.small"
+asg_min_size           = 1
+asg_max_size           = 3
+asg_desired_capacity   = 2
+db_instance_class      = "db.t4g.micro"
+db_multi_az            = false
+db_deletion_protection = false
+db_skip_final_snapshot = true

@@ -1,0 +1,11 @@
+environment            = "prod"
+aws_region             = "us-east-1"
+single_nat_gateway     = false
+app_instance_type      = "t3.small"
+asg_min_size           = 2
+asg_max_size           = 6
+asg_desired_capacity   = 2
+db_instance_class      = "db.t4g.small"
+db_multi_az            = true
+db_deletion_protection = true
+db_skip_final_snapshot = false

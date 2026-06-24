@@ -1,0 +1,203 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches:
+      - main
+      - staging
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform-plan.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to plan (dev / staging / prod)"
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  contents: read
+  issues: write  # Allows the workflow to post plan output as a PR comment
+  pull-requests: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Determine which environments need planning.
+  # On a PR we plan all three; on a manual trigger we plan only the chosen one.
+  # ---------------------------------------------------------------------------
+  setup:
+    name: Determine environments
+    runs-on: ubuntu-latest
+    outputs:
+      environments: ${{ steps.set-envs.outputs.environments }}
+    steps:
+      - name: Set environments matrix
+        id: set-envs
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "environments=[\"${{ github.event.inputs.environment }}\"]" >> "$GITHUB_OUTPUT"
+          else
+            echo 'environments=["dev","staging","prod"]' >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Run terraform plan for every environment in the matrix.
+  # ---------------------------------------------------------------------------
+  plan:
+    name: Plan (${{ matrix.environment }})
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false          # Let all environments finish even if one fails
+      matrix:
+        environment: ${{ fromJson(needs.setup.outputs.environments) }}
+
+    environment: ${{ matrix.environment }}   # Maps to a GitHub Environment for secrets
+
+    defaults:
+      run:
+        working-directory: terraform/environments/${{ matrix.environment }}
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2. Set up Terraform
+      # -----------------------------------------------------------------------
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.5"
+
+      # -----------------------------------------------------------------------
+      # 3. Configure AWS credentials (read-only IAM role per environment)
+      #    Secrets are set on the matching GitHub Environment:
+      #      AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION
+      # -----------------------------------------------------------------------
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
+
+      # -----------------------------------------------------------------------
+      # 4. Cache the Terraform plugin directory to speed up subsequent runs
+      # -----------------------------------------------------------------------
+      - name: Cache Terraform providers
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+          restore-keys: |
+            terraform-${{ runner.os }}-
+
+      # -----------------------------------------------------------------------
+      # 5. terraform init  (initialises backend + downloads providers)
+      # -----------------------------------------------------------------------
+      - name: Terraform Init
+        id: init
+        run: terraform init -input=false
+
+      # -----------------------------------------------------------------------
+      # 6. terraform validate  (catches syntax errors before hitting AWS)
+      # -----------------------------------------------------------------------
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      # -----------------------------------------------------------------------
+      # 7. terraform fmt check  (fail fast on formatting issues)
+      # -----------------------------------------------------------------------
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive -no-color ../..
+        continue-on-error: true   # Report but don't block – treat as a warning
+
+      # -----------------------------------------------------------------------
+      # 8. terraform plan  (the main deliverable of this workflow)
+      # -----------------------------------------------------------------------
+      - name: Terraform Plan
+        id: plan
+        run: |
+          set +e
+          terraform plan \
+            -var-file="${{ matrix.environment }}.tfvars" \
+            -input=false \
+            -no-color \
+            -out=tfplan \
+            2>&1 | tee plan_output.txt
+          PLAN_EXIT=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$PLAN_EXIT" -eq 0 ]; then
+            terraform show -no-color tfplan > plan_readable.txt
+          else
+            cp plan_output.txt plan_readable.txt
+          fi
+
+          exit "$PLAN_EXIT"
+        continue-on-error: true   # We post the result to the PR regardless
+
+      # -----------------------------------------------------------------------
+      # 9. Post plan output as a PR comment (only on pull_request events)
+      # -----------------------------------------------------------------------
+      - name: Post plan to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const env   = '${{ matrix.environment }}';
+            const init  = '${{ steps.init.outcome }}';
+            const fmt   = '${{ steps.fmt.outcome }}';
+            const val   = '${{ steps.validate.outcome }}';
+            const plan  = '${{ steps.plan.outcome }}';
+            const fs    = require('fs');
+            const path  = `terraform/environments/${env}/plan_readable.txt`;
+            const body  = fs.existsSync(path)
+              ? fs.readFileSync(path, 'utf8').slice(0, 60000)
+              : 'Plan output was not generated.';
+
+            const output = `### Terraform Plan — \`${env}\`
+
+            | Step | Result |
+            |------|--------|
+            | 🔧 Init     | \`${init}\`     |
+            | 📐 Format   | \`${fmt}\`      |
+            | ✅ Validate | \`${val}\`      |
+            | 📋 Plan     | \`${plan}\`     |
+
+            <details><summary>Show Plan Output</summary>
+
+            \`\`\`hcl
+            ${body}
+            \`\`\`
+
+            </details>
+
+            > Triggered by @${{ github.actor }} on \`${{ github.ref_name }}\``;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner:        context.repo.owner,
+              repo:         context.repo.repo,
+              body:         output
+            });
+
+      # -----------------------------------------------------------------------
+      # 10. Fail the job if the plan itself failed
+      # -----------------------------------------------------------------------
+      - name: Check plan result
+        if: steps.plan.outcome == 'failure'
+        run: |
+          echo "::error::terraform plan failed for environment: ${{ matrix.environment }}"
+          exit 1

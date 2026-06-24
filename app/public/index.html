@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Splitter — Payment Manager</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">S</div>
+      <span>Splitter</span>
+    </div>
+    <button class="btn btn-primary" id="addFriendBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add friend
+    </button>
+  </header>
+
+  <main class="main">
+
+    <section class="summary-grid">
+      <div class="summary-card owed">
+        <span class="summary-label">You are owed</span>
+        <span class="summary-value" id="summaryOwed">$0.00</span>
+      </div>
+      <div class="summary-card owe">
+        <span class="summary-label">You owe</span>
+        <span class="summary-value" id="summaryOwe">$0.00</span>
+      </div>
+      <div class="summary-card net">
+        <span class="summary-label">Net balance</span>
+        <span class="summary-value" id="summaryNet">$0.00</span>
+      </div>
+    </section>
+
+    <section class="friends-section">
+      <div class="section-header">
+        <h2>Friends</h2>
+        <button class="btn btn-secondary" id="addExpenseBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add expense
+        </button>
+      </div>
+      <div class="friends-grid" id="friendsGrid"></div>
+      <div class="empty-state" id="emptyState" style="display:none;">
+        <div class="empty-icon">👥</div>
+        <p>No friends yet. Add someone to start splitting expenses.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Add Friend Modal -->
+<div class="modal-overlay" id="friendModalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add a friend</h3>
+      <button class="modal-close" data-close="friendModalOverlay">&times;</button>
+    </div>
+    <form id="friendForm">
+      <label class="field">
+        <span>Name</span>
+        <input type="text" id="friendName" placeholder="e.g. Priya" required autocomplete="off">
+      </label>
+      <div class="field">
+        <span>Color</span>
+        <div class="color-picker" id="colorPicker"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="friendModalOverlay">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add friend</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Expense Modal -->
+<div class="modal-overlay" id="expenseModalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add an expense</h3>
+      <button class="modal-close" data-close="expenseModalOverlay">&times;</button>
+    </div>
+    <form id="expenseForm">
+      <label class="field">
+        <span>With</span>
+        <select id="expensePerson" required></select>
+      </label>
+      <label class="field">
+        <span>Description</span>
+        <input type="text" id="expenseDescription" placeholder="e.g. Dinner at Toit" required autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Amount</span>
+        <div class="amount-input">
+          <span>$</span>
+          <input type="number" id="expenseAmount" placeholder="0.00" min="0.01" step="0.01" required>
+        </div>
+      </label>
+
+      <div class="field">
+        <span>Paid by</span>
+        <div class="segmented" id="paidBySegment">
+          <button type="button" class="segment active" data-value="you">You</button>
+          <button type="button" class="segment" data-value="friend">Them</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span>Split</span>
+        <div class="segmented" id="splitTypeSegment">
+          <button type="button" class="segment active" data-value="equal">Split equally</button>
+          <button type="button" class="segment" data-value="custom">Custom amounts</button>
+        </div>
+      </div>
+
+      <div class="custom-split" id="customSplitFields" style="display:none;">
+        <label class="field">
+          <span>Your share</span>
+          <div class="amount-input"><span>$</span><input type="number" id="yourShare" min="0" step="0.01"></div>
+        </label>
+        <label class="field">
+          <span>Their share</span>
+          <div class="amount-input"><span>$</span><input type="number" id="friendShare" min="0" step="0.01"></div>
+        </label>
+      </div>
+
+      <div class="split-preview" id="splitPreview"></div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="expenseModalOverlay">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save expense</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Friend Detail Modal -->
+<div class="modal-overlay" id="detailModalOverlay">
+  <div class="modal modal-large">
+    <div class="modal-header">
+      <div class="detail-header-info">
+        <div class="avatar" id="detailAvatar"></div>
+        <div>
+          <h3 id="detailName"></h3>
+          <span class="detail-balance" id="detailBalance"></span>
+        </div>
+      </div>
+      <button class="modal-close" data-close="detailModalOverlay">&times;</button>
+    </div>
+
+    <div class="detail-actions">
+      <button class="btn btn-secondary" id="settleUpBtn">Settle up</button>
+      <button class="btn btn-ghost-danger" id="deleteFriendBtn">Remove friend</button>
+    </div>
+
+    <div class="detail-tabs">
+      <h4>History</h4>
+    </div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+</div>
+
+<!-- Settle Up Modal -->
+<div class="modal-overlay" id="settleModalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Settle up</h3>
+      <button class="modal-close" data-close="settleModalOverlay">&times;</button>
+    </div>
+    <form id="settleForm">
+      <p class="settle-hint" id="settleHint"></p>
+      <label class="field">
+        <span>Amount</span>
+        <div class="amount-input"><span>$</span><input type="number" id="settleAmount" min="0.01" step="0.01" required></div>
+      </label>
+      <div class="field">
+        <span>Who paid?</span>
+        <div class="segmented" id="settleDirectionSegment">
+          <button type="button" class="segment active" data-value="friend_paid">They paid you</button>
+          <button type="button" class="segment" data-value="you_paid">You paid them</button>
+        </div>
+      </div>
+      <label class="field">
+        <span>Note (optional)</span>
+        <input type="text" id="settleNote" placeholder="e.g. Paid via UPI" autocomplete="off">
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="settleModalOverlay">Cancel</button>
+        <button type="submit" class="btn btn-primary">Record payment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
