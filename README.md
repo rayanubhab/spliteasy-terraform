@@ -106,14 +106,6 @@ terraform init
 terraform plan -var-file=dev.tfvars
 ```
 
-No AWS account is required to review the plan output structurally, but
-`terraform plan` does need *some* AWS credentials configured (even
-read-only/no permissions) because the AWS provider calls `DescribeAvailabilityZones`
-and AMI lookups during planning. With no credentials at all, `init` and
-`validate` still succeed; `plan` will fail at the first AWS API call, which is
-expected and is what I'd point to in the interview as the "free tier read-only
-IAM user" step from the assignment.
-
 The submitted CI workflow intentionally stops at `terraform plan`, matching
 the assignment scope. A real deployment pipeline would add an approval-gated
 apply workflow after this plan stage.
