@@ -5,15 +5,13 @@ set -euxo pipefail
 dnf install -y nodejs git jq awscli
 
 # --- Pull app code ---
-# In this demo we clone the public repo. In a real pipeline this would pull a
-# versioned, immutable build artifact (e.g. from S3 or an internal registry)
-# rather than `git clone main` at boot time.
+
 mkdir -p /opt/app
 git clone --depth 1 ${app_repo_url} /opt/app
 cd /opt/app/app
 npm install --production
 
-# --- Fetch DB credentials from Secrets Manager (never baked into the AMI/user-data) ---
+# --- Fetch DB credentials from Secrets Manager ---
 SECRET_JSON=$(aws secretsmanager get-secret-value \
   --secret-id ${db_secret_arn} \
   --region ${aws_region} \
