@@ -118,6 +118,24 @@ The submitted CI workflow intentionally stops at `terraform plan`, matching
 the assignment scope. A real deployment pipeline would add an approval-gated
 apply workflow after this plan stage.
 
+### Running the GitHub Actions workflow
+
+The Terraform plan can also be run from GitHub Actions:
+
+1. Open the repository in GitHub.
+2. Go to **Actions**.
+3. Select **Terraform Plan** from the left sidebar.
+4. Click **Run workflow**.
+5. Choose the branch (`main`) and target environment (`dev`, `staging`, or
+   `prod`).
+6. Click **Run workflow** again and open the run to review the plan output.
+
+![Terraform Plan workflow runs](docs/images/github-actions-workflow-runs.png)
+
+For pull requests, the workflow also comments with the plan summary and
+readable Terraform plan output so reviewers can see infrastructure changes
+without opening the Actions logs.
+
 
 
 ## What I'd change for real production
