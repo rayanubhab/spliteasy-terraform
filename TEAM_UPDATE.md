@@ -1,6 +1,6 @@
 # Team Update — Sample Slack Message
 
-Posted to `#deploys` (or `#eng-announcements` for prod):
+Posted to `#devops-support` (or `#devops-support-prod` for prod):
 
 ---
 
@@ -21,29 +21,15 @@ health checks). Will post here when it's done.
 - PR: `<link to PR>`
 - Architecture & decisions: [README.md](./README.md)
 - Deploy/rollback steps: [RUNBOOK.md](./RUNBOOK.md)
-- Workflow run: `<link to GitHub Actions run>`
-- Dashboards: *not yet wired up — tracked in `<ticket link>`*
+- Workflow run: `https://github.com/rayanubhab/spliteasy-terraform/actions/runs/<run-id>`
+
 
 **Risks/concerns:**
-- No HTTPS yet on this environment (HTTP only) — fine for staging, blocking
-  item before prod.
 - No alerting configured yet — if something breaks, we'll find out from
-  `/health` checks or user reports, not paging. Tracked in `<ticket link>`.
+  `/health` checks or user reports.
 
-**Contact:** ping me (@anubhab) here or in `#deploys` if anything looks off.
+**Contact:** ping me (Anubhab) here or in `#devops-support` if anything looks off.
 
 ---
 
-### Notes on why it's written this way
 
-- **Leads with what/why in one line** — a PM or support engineer scanning
-  Slack shouldn't need to open a doc to know what's happening.
-- **Risks are stated plainly, not buried** — "no HTTPS, no alerting yet" is
-  the kind of thing someone on support needs to know *before* a customer
-  reports it, not after.
-- **Links instead of inline detail** — anyone who wants the "why" behind a
-  decision clicks through to the README; anyone who just needs to know
-  "is this going to break my thing" gets the answer in the message itself.
-- **No jargon-heavy infra detail in the headline** — "auto-scaling EC2
-  fleet" is mentioned once for context, not explained; engineers can ask,
-  non-engineers don't need it to understand the impact.
